@@ -44,7 +44,7 @@ def abstract_model_xy(sess, hps, feeds, train_iterator, test_iterator, data_init
                                                       feeds['y']: _y, lr: _lr})[1]
         m.train = _train
 
-    m.polyak_swap = lambda: sess.run(polyak_swap_op)
+    m.polyak_swap = lambda: sess.run(polyak_swap_op)    # Why use lambda here?????????
 
     # === Testing
     loss_test, stats_test = f_loss(test_iterator, False, reuse=True)
@@ -111,9 +111,10 @@ def prior(name, y_onehot, hps):
             h = Z.conv2d_zeros('p', h, 2*n_z)
         if hps.ycond:
             h += tf.reshape(Z.linear_zeros("y_emb", y_onehot,
-                                           2*n_z), [-1, 1, 1, 2 * n_z])
+                                           2*n_z), [-1, 1, 1, 2 * n_z])    #purpose?
+        hlogsd = tf.get_variable("hlogSD", initializer=h, trainable=True)    #trainable variance
 
-        pz = Z.gaussian_diag(h[:, :, :, :n_z], h[:, :, :, n_z:])
+        pz = Z.gaussian_diag(h[:, :, :, :n_z], hlogsd[:, :, :, n_z:])
 
     def logp(z1):
         objective = pz.logp(z1)
@@ -373,7 +374,8 @@ def revnet2d_step(name, z, logdet, hps, reverse):
                 h = f("f1", z1, hps.width, n_z)
                 shift = h[:, :, :, 0::2]
                 # scale = tf.exp(h[:, :, :, 1::2])
-                scale = tf.nn.sigmoid(h[:, :, :, 1::2] + 2.)
+                #scale = tf.nn.sigmoid(h[:, :, :, 1::2] + 2.)
+                scale = 1
                 z2 += shift
                 z2 *= scale
                 logdet += tf.reduce_sum(tf.log(scale), axis=[1, 2, 3])
@@ -393,7 +395,8 @@ def revnet2d_step(name, z, logdet, hps, reverse):
                 h = f("f1", z1, hps.width, n_z)
                 shift = h[:, :, :, 0::2]
                 # scale = tf.exp(h[:, :, :, 1::2])
-                scale = tf.nn.sigmoid(h[:, :, :, 1::2] + 2.)
+                #scale = tf.nn.sigmoid(h[:, :, :, 1::2] + 2.)
+                scale = 1         # constant volume, last line annotated.
                 z2 /= scale
                 z2 -= shift
                 logdet -= tf.reduce_sum(tf.log(scale), axis=[1, 2, 3])
@@ -581,4 +584,4 @@ def split2d_prior(z):
 
     mean = h[:, :, :, 0::2]
     logs = h[:, :, :, 1::2]
-    return Z.gaussian_diag(mean, logs)
+    return Z.laplacian_diag(mean, logs)

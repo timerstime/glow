@@ -453,7 +453,20 @@ def gaussian_diag(mean, logsd):
     o.logp = lambda x: flatten_sum(o.logps(x))
     o.get_eps = lambda x: (x - mean) / tf.exp(logsd)
     return o
-
+######################################
+# Laplacian prior for on-manifold coordinates
+def laplacian_diag(mean, loglambda):
+    class o(object):
+        pass
+    o.mean = mean
+    o.logsd = loglambda
+    o.eps = tf.random_normal(tf.shape(mean))
+    o.sample = mean + tf.exp(loglambda) * o.eps
+    o.sample2 = lambda eps: mean + tf.exp(loglambda) * eps
+    o.logps = lambda x: -1 * (np.log(2. * tf.exp(loglambda)) + np.abs(x - mean) / tf.exp(loglambda))
+    o.logp = lambda x: flatten_sum(o.logps(x))
+    o.get_eps = lambda x: (x - mean) / tf.exp(loglambda)
+    return o
 
 # def discretized_logistic_old(mean, logscale, binsize=1 / 256.0, sample=None):
 #    scale = tf.exp(logscale)
